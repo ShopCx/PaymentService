@@ -1,0 +1,190 @@
+openapi: 3.0.0
+info:
+  title: Payment Service API
+  description: |
+    Payment processing service for ShopCx demo application with intentionally vulnerable endpoints.
+    WARNING: This API contains intentional vulnerabilities and should only be used in controlled environments.
+  version: 1.0.0
+  contact:
+    name: Security Team
+    email: security@example.com
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+
+paths:
+  /api/payments/process:
+    post:
+      summary: Process a payment
+      description: |
+        Vulnerable to:
+        - Command injection through amount and cardNumber parameters
+        - Insecure logging of sensitive data
+        - Weak JWT algorithm (HS256)
+        - Prototype pollution through Lodash merge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                  description: Payment amount
+                cardNumber:
+                  type: string
+                  description: Credit card number
+                cvv:
+                  type: string
+                  description: Card verification value
+                additionalData:
+                  type: object
+                  description: Additional data (vulnerable to prototype pollution)
+      responses:
+        '200':
+          description: Payment processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  token:
+                    type: string
+                    description: JWT token containing payment details
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/payments/verify/{token}:
+    get:
+      summary: Verify a payment token
+      description: |
+        Vulnerable to:
+        - Insecure JWT verification
+        - Information disclosure through error messages
+        - Prototype pollution through Lodash set
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: JWT token to verify
+      responses:
+        '200':
+          description: Token verified successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  amount:
+                    type: number
+                  cardNumber:
+                    type: string
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/payments/refund:
+    post:
+      summary: Process a refund
+      description: |
+        Vulnerable to:
+        - Race condition in transaction status update
+        - Insecure logging of sensitive data
+        - Prototype pollution through Lodash defaultsDeep
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                transactionId:
+                  type: string
+                  description: ID of the transaction to refund
+                amount:
+                  type: number
+                  description: Refund amount
+                settings:
+                  type: object
+                  description: Additional settings (vulnerable to prototype pollution)
+      responses:
+        '200':
+          description: Refund processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/admin/transactions/clear:
+    post:
+      summary: Clear all transactions
+      description: |
+        Vulnerable to:
+        - Missing authentication
+        - Information disclosure through error messages
+        - Prototype pollution through Lodash extend
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                profile:
+                  type: object
+                  description: Admin profile (vulnerable to prototype pollution)
+      responses:
+        '200':
+          description: All transactions cleared successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Detailed error message (intentionally vulnerable to information disclosure)
+
+    Success:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success]
+          description: Success status 
