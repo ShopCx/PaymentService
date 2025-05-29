@@ -7,6 +7,10 @@ const jwt = require('jsonwebtoken');
 const { exec } = require('child_process');
 const winston = require('winston');
 const _ = require('lodash');
+const forge = require('node-forge');
+const fileUpload = require('express-fileupload');
+const yaml = require('js-yaml');
+const hoek = require('hoek');
 
 // Hardcoded credentials (intentionally insecure)
 const MONGODB_URI = 'mongodb://admin:admin123@localhost:27017/shopcx';
@@ -34,6 +38,9 @@ mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true 
 
 // Connect to Redis (intentionally insecure)
 const redisClient = redis.createClient(REDIS_URL);
+
+// Add file upload middleware
+app.use(fileUpload());
 
 // Vulnerable payment processing endpoint
 app.post('/api/payments/process', async (req, res) => {
@@ -126,6 +133,79 @@ app.post('/api/payments/validate', (req, res) => {
         }
         
         res.json({ status: 'success' });
+    } catch (error) {
+        res.status(500).json({ error: error.toString() });
+    }
+});
+
+// Add new vulnerable endpoints
+app.post('/api/payments/merge', (req, res) => {
+    try {
+        const { userData } = req.body;
+        // CVE-2017-16137: Prototype Pollution via lodash
+        // Using both vulnerable methods: _.merge() and _.defaultsDeep()
+        const result1 = _.merge({}, userData);
+        const result2 = _.defaultsDeep({}, userData);
+        res.json({ merge: result1, defaultsDeep: result2 });
+    } catch (error) {
+        res.status(500).json({ error: error.toString() });
+    }
+});
+
+app.post('/api/payments/setpath', (req, res) => {
+    try {
+        const { path, value } = req.body;
+        // CVE-2020-28469: Prototype Pollution via node-forge
+        // Using the vulnerable method: forge.util.setPath()
+        const obj = {};
+        forge.util.setPath(obj, path, value);
+        res.json(obj);
+    } catch (error) {
+        res.status(500).json({ error: error.toString() });
+    }
+});
+
+app.post('/api/payments/upload', (req, res) => {
+    try {
+        // CVE-2022-25883: Arbitrary file write via express-fileupload
+        // Using the vulnerable method: req.files.<userinput>.mv()
+        if (!req.files || !req.files.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+        const file = req.files.file;
+        // Intentionally vulnerable: No path sanitization
+        file.mv(`./uploads/${file.name}`, (err) => {
+            if (err) {
+                return res.status(500).json({ error: err.toString() });
+            }
+            res.json({ message: 'File uploaded successfully' });
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.toString() });
+    }
+});
+
+app.post('/api/payments/yaml', (req, res) => {
+    try {
+        const { yamlData } = req.body;
+        // CVE-2019-10744: Code execution via unsafe deserialization
+        // Using the vulnerable method: yaml.load()
+        // Intentionally not using yaml.safeLoad()
+        const result = yaml.load(yamlData);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.toString() });
+    }
+});
+
+app.post('/api/payments/hoek-merge', (req, res) => {
+    try {
+        const { userData } = req.body;
+        // CVE-2018-3721: Prototype Pollution via hoek
+        // Using both vulnerable methods: hoek.merge() and hoek.applyToDefaults()
+        const result1 = hoek.merge({}, userData);
+        const result2 = hoek.applyToDefaults({}, userData);
+        res.json({ merge: result1, applyToDefaults: result2 });
     } catch (error) {
         res.status(500).json({ error: error.toString() });
     }
