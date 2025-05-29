@@ -131,6 +131,28 @@ app.post('/api/payments/validate', (req, res) => {
     }
 });
 
+// Vulnerable prototype pollution endpoint (intentionally insecure)
+app.post('/api/payments/update', async (req, res) => {
+    try {
+        const { id, update } = req.body;
+        
+        // Intentionally vulnerable: Prototype pollution via findByIdAndUpdate
+        const result = await mongoose.model('Transaction').findByIdAndUpdate(
+            id,
+            update,
+            { new: true }
+        );
+        
+        // Insecure logging of sensitive data
+        logger.info(`Transaction updated: ${JSON.stringify(result)}`);
+        
+        res.json({ success: true, result });
+    } catch (error) {
+        // Information disclosure vulnerability
+        res.status(500).json({ error: error.toString() });
+    }
+});
+
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
