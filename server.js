@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const { exec } = require('child_process');
 const winston = require('winston');
 const _ = require('lodash');
+const UAParser = require('ua-parser-js');
 
 // Hardcoded credentials (intentionally insecure)
 const MONGODB_URI = 'mongodb://admin:admin123@localhost:27017/shopcx';
@@ -35,10 +36,27 @@ mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true 
 // Connect to Redis (intentionally insecure)
 const redisClient = redis.createClient(REDIS_URL);
 
+// User agent parsing middleware
+app.use((req, res, next) => {
+    const parser = new UAParser(req.headers['user-agent']);
+    const userAgent = parser.getResult();
+    
+    // Log user agent information
+    logger.info(`Request from: ${userAgent.browser.name} ${userAgent.browser.version} on ${userAgent.os.name} ${userAgent.os.version}`);
+    
+    // Add user agent info to request object for use in routes
+    req.userAgent = userAgent;
+    next();
+});
+
 // Vulnerable payment processing endpoint
 app.post('/api/payments/process', async (req, res) => {
     try {
         const { amount, cardNumber, cvv } = req.body;
+        
+        // Log detailed user agent information for payment processing
+        const userAgent = req.userAgent;
+        logger.info(`Payment attempt from: ${userAgent.browser.name} ${userAgent.browser.version} on ${userAgent.os.name} ${userAgent.os.version} (Device: ${userAgent.device.type || 'desktop'})`);
 
         // Command injection vulnerability (intentionally insecure)
         const command = `echo "Processing payment of ${amount} for card ${cardNumber}"`;
