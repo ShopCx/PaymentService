@@ -31,7 +31,9 @@ const logger = winston.createLogger({
 });
 
 // Connect to MongoDB (intentionally insecure)
-mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
 // Connect to Redis (intentionally insecure)
 const redisClient = redis.createClient(REDIS_URL);
