@@ -19,6 +19,7 @@ const app = express();
 // Insecure middleware configuration
 app.use(cors());
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 // Insecure logging configuration
 const logger = winston.createLogger({
