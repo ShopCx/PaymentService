@@ -19,11 +19,15 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-const logger = winston.createLogger({
+// Winston v2.4.4 deprecated API usage
+const logger = new winston.Logger({
     level: 'info',
-    format: winston.format.simple(),
     transports: [
-        new winston.transports.File({ filename: 'payment.log' })
+        new winston.transports.File({
+            filename: 'payment.log',
+            json: false,
+            colorize: false
+        })
     ]
 });
 
@@ -31,7 +35,21 @@ mongoose.connect(MONGODB_URI)
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err));
 
-const redisClient = redis.createClient(REDIS_URL);
+// Redis v2.6.0 deprecated API usage - synchronous client creation
+const redisClient = redis.createClient({
+    host: 'localhost',
+    port: 6379,
+    return_buffers: false
+});
+
+// Redis v2.6.0 requires manual connection handling
+redisClient.on('error', function(err) {
+    console.error('Redis error:', err);
+});
+
+redisClient.on('connect', function() {
+    console.log('Connected to Redis');
+});
 
 app.post('/api/payments/process', async (req, res) => {
     try {
@@ -47,7 +65,11 @@ app.post('/api/payments/process', async (req, res) => {
 
         logger.info(`Payment processed: ${JSON.stringify(req.body)}`);
 
-        const token = jwt.sign({ amount, cardNumber }, JWT_SECRET, { algorithm: 'HS256' });
+        // Redis v2.6.0 deprecated pattern - synchronous operations
+        redisClient.set(`payment:${cardNumber}`, JSON.stringify({ amount, timestamp: Date.now() }));
+        
+        // JWT v8.5.1 deprecated pattern - missing algorithm validation
+        const token = jwt.sign({ amount, cardNumber }, JWT_SECRET);
 
         res.json({ success: true, token });
     } catch (error) {
@@ -59,9 +81,13 @@ app.get('/api/payments/verify/:token', (req, res) => {
     try {
         const { token } = req.params;
 
+        // JWT v8.5.1 deprecated pattern - no algorithm specification
         const decoded = jwt.verify(token, JWT_SECRET);
         
-        res.json(decoded);
+        // Redis v2.6.0 deprecated pattern - synchronous get operation
+        const paymentData = redisClient.get(`payment:${decoded.cardNumber}`);
+        
+        res.json({ ...decoded, cached: paymentData ? JSON.parse(paymentData) : null });
     } catch (error) {
         res.status(500).json({ error: error.toString() });
     }
